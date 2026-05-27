@@ -629,7 +629,13 @@ fn fund_invoice_request(
     }
 
     let now = env.ledger().timestamp();
-    let factoring_fee = resolve_factoring_fee(env, config, request.principal, request.sme.clone(), &request.token)?;
+    let factoring_fee = resolve_factoring_fee(
+        env,
+        config,
+        request.principal,
+        request.sme.clone(),
+        &request.token,
+    )?;
     let funded = FundedInvoice {
         invoice_id: request.invoice_id,
         sme: request.sme.clone(),
@@ -762,19 +768,18 @@ impl FundingPool {
             &DataKey::TokenTotals(initial_token.clone()),
             &PoolTokenTotals::default(),
         );
-        env.storage()
-            .instance()
-            .set(&DataKey::ShareToken(initial_token.clone()), &initial_share_token);
-        env.storage()
-            .instance()
-            .set(
-                &DataKey::TokenConfig(initial_token.clone()),
-                &TokenConfig {
-                    token: initial_token.clone(),
-                    share_token: initial_share_token.clone(),
-                    decimals: token_decimals,
-                },
-            );
+        env.storage().instance().set(
+            &DataKey::ShareToken(initial_token.clone()),
+            &initial_share_token,
+        );
+        env.storage().instance().set(
+            &DataKey::TokenConfig(initial_token.clone()),
+            &TokenConfig {
+                token: initial_token.clone(),
+                share_token: initial_share_token.clone(),
+                decimals: token_decimals,
+            },
+        );
         env.storage().instance().set(&DataKey::Initialized, &true);
         env.storage()
             .instance()
@@ -884,7 +889,7 @@ impl FundingPool {
             env.storage()
                 .instance()
                 .set(&DataKey::ShareToken(token.clone()), &share_token);
-            
+
             // #367: Store token configuration with decimals
             let config = TokenConfig {
                 token: token.clone(),

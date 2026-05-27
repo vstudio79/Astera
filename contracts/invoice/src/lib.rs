@@ -2187,18 +2187,32 @@ mod test {
         env.ledger().with_mut(|l| l.timestamp = 1_000_000);
         let (client, _admin, _pool, sme) = setup(&env);
         let due = env.ledger().timestamp() + 50_000;
-        
+
         // Day 1: Create 1 invoice
-        client.create_invoice(&sme, &String::from_str(&env, "D"), &100i128, &due, &String::from_str(&env, "i"), &String::from_str(&env, "h"));
-        
+        client.create_invoice(
+            &sme,
+            &String::from_str(&env, "D"),
+            &100i128,
+            &due,
+            &String::from_str(&env, "i"),
+            &String::from_str(&env, "h"),
+        );
+
         // Jump forward 5 days (432_000 seconds)
         let new_timestamp = env.ledger().timestamp() + (5 * 86400u64);
         env.ledger().with_mut(|l| l.timestamp = new_timestamp);
-        
+
         // Day 6: Reset should have occurred; should be able to create 10 invoices (full daily limit)
         // If the bug exists and reset_time wasn't set to now, this would fail
         for _ in 0..10 {
-            client.create_invoice(&sme, &String::from_str(&env, "D"), &100i128, &(new_timestamp + 50_000), &String::from_str(&env, "i"), &String::from_str(&env, "h"));
+            client.create_invoice(
+                &sme,
+                &String::from_str(&env, "D"),
+                &100i128,
+                &(new_timestamp + 50_000),
+                &String::from_str(&env, "i"),
+                &String::from_str(&env, "h"),
+            );
         }
     }
 
@@ -2378,10 +2392,7 @@ mod test {
         env.mock_all_auths();
         let (client, _admin, _pool, sme) = setup(&env);
         // Build a 257-character string
-        let long_desc = String::from_bytes(
-            &env,
-            &[b'a'; 257],
-        );
+        let long_desc = String::from_bytes(&env, &[b'a'; 257]);
         client.create_invoice(
             &sme,
             &String::from_str(&env, "Debtor Corp"),
@@ -2595,9 +2606,7 @@ mod test {
             let admin = Address::generate(&env);
             let pool = env.register(mock_pool_true::MockPoolTrue, ());
             let sme = Address::generate(&env);
-            client.initialize(
-                &admin, &pool, &i128::MAX, &86_400u64, &1u32,
-            );
+            client.initialize(&admin, &pool, &i128::MAX, &86_400u64, &1u32);
 
             let due = env.ledger().timestamp() + 86_400;
             let id = client.create_invoice(
@@ -2647,10 +2656,18 @@ mod test {
             for _ in 0..5 {
                 let action = lcg(&mut seed) % 4;
                 match action {
-                    0 => { let _ = client.try_mark_funded(&id, &pool); }
-                    1 => { let _ = client.try_mark_paid(&id, &pool); }
-                    2 => { let _ = client.try_mark_defaulted(&id, &pool); }
-                    _ => { let _ = client.try_cancel_invoice(&id, &sme); }
+                    0 => {
+                        let _ = client.try_mark_funded(&id, &pool);
+                    }
+                    1 => {
+                        let _ = client.try_mark_paid(&id, &pool);
+                    }
+                    2 => {
+                        let _ = client.try_mark_defaulted(&id, &pool);
+                    }
+                    _ => {
+                        let _ = client.try_cancel_invoice(&id, &sme);
+                    }
                 }
                 let inv = client.get_invoice(&id);
                 assert_eq!(
@@ -2690,10 +2707,7 @@ mod test {
             );
 
             client.mark_funded(&id, &pool);
-            assert_eq!(
-                client.get_invoice(&id).status,
-                InvoiceStatus::Funded
-            );
+            assert_eq!(client.get_invoice(&id).status, InvoiceStatus::Funded);
 
             // cancel_invoice must fail on Funded
             let cancel_result = client.try_cancel_invoice(&id, &sme);
@@ -2702,10 +2716,7 @@ mod test {
                 "trial {}: cancel_invoice should fail on Funded",
                 trial
             );
-            assert_eq!(
-                client.get_invoice(&id).status,
-                InvoiceStatus::Funded
-            );
+            assert_eq!(client.get_invoice(&id).status, InvoiceStatus::Funded);
 
             // mark_funded must fail on already Funded
             let double_fund = client.try_mark_funded(&id, &pool);
@@ -2755,9 +2766,7 @@ mod test {
             let pool = Address::generate(&env);
             let sme = Address::generate(&env);
             let expiration_secs = lcg(&mut seed) % 100 + 1; // 1..=100 sec
-            client.initialize(
-                &admin, &pool, &i128::MAX, &expiration_secs, &90u32,
-            );
+            client.initialize(&admin, &pool, &i128::MAX, &expiration_secs, &90u32);
 
             let id = client.create_invoice(
                 &sme,
@@ -2769,20 +2778,14 @@ mod test {
             );
 
             // Initially Pending
-            assert_eq!(
-                client.get_invoice(&id).status,
-                InvoiceStatus::Pending
-            );
+            assert_eq!(client.get_invoice(&id).status, InvoiceStatus::Pending);
 
             // Jump past expiration
             env.ledger()
                 .with_mut(|l| l.timestamp += expiration_secs + 1);
 
             // Read triggers expiration
-            assert_eq!(
-                client.get_invoice(&id).status,
-                InvoiceStatus::Expired
-            );
+            assert_eq!(client.get_invoice(&id).status, InvoiceStatus::Expired);
         }
     }
 }

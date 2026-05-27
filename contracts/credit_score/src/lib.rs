@@ -564,10 +564,7 @@ impl CreditScoreContract {
         env.storage()
             .persistent()
             .set(&DataKey::LateThreshold, &days);
-        env.events().publish(
-            (EVT, symbol_short!("lt_upd")),
-            days,
-        );
+        env.events().publish((EVT, symbol_short!("lt_upd")), days);
     }
 
     /// Returns the current late-payment threshold in days (default 30).
@@ -1602,7 +1599,10 @@ mod test {
         client.record_payment(&pool, &1, &sme, &1_000_000_000i128, &due_date, &paid_at);
 
         let record = client.get_payment_record(&sme, &0).unwrap();
-        assert_eq!(record.days_late, 1, "1 hour late should be 1 day late (ceiling)");
+        assert_eq!(
+            record.days_late, 1,
+            "1 hour late should be 1 day late (ceiling)"
+        );
     }
 
     #[test]
@@ -1620,7 +1620,10 @@ mod test {
         client.record_payment(&pool, &1, &sme, &1_000_000_000i128, &due_date, &paid_at);
 
         let record = client.get_payment_record(&sme, &0).unwrap();
-        assert_eq!(record.days_late, 2, "25 hours late should be 2 days late (ceiling)");
+        assert_eq!(
+            record.days_late, 2,
+            "25 hours late should be 2 days late (ceiling)"
+        );
     }
 
     #[test]
@@ -1637,12 +1640,27 @@ mod test {
         // Exact on-time
         client.record_payment(&pool, &1, &sme, &1_000_000_000i128, &due_date, &due_date);
         let r1 = client.get_payment_record(&sme, &0).unwrap();
-        assert!(r1.days_late <= 0, "on-time payment must have days_late <= 0, got {}", r1.days_late);
+        assert!(
+            r1.days_late <= 0,
+            "on-time payment must have days_late <= 0, got {}",
+            r1.days_late
+        );
 
         // Early
-        client.record_payment(&pool, &2, &sme, &1_000_000_000i128, &due_date, &(due_date - 1000));
+        client.record_payment(
+            &pool,
+            &2,
+            &sme,
+            &1_000_000_000i128,
+            &due_date,
+            &(due_date - 1000),
+        );
         let r2 = client.get_payment_record(&sme, &1).unwrap();
-        assert!(r2.days_late <= 0, "early payment must have days_late <= 0, got {}", r2.days_late);
+        assert!(
+            r2.days_late <= 0,
+            "early payment must have days_late <= 0, got {}",
+            r2.days_late
+        );
     }
 
     #[test]
@@ -1661,7 +1679,10 @@ mod test {
         client.record_default(&pool, &1, &sme, &1_000_000_000i128, &due_date);
 
         let record = client.get_payment_record(&sme, &0).unwrap();
-        assert_eq!(record.days_late, 1, "default 1 hour late should be 1 day (ceiling)");
+        assert_eq!(
+            record.days_late, 1,
+            "default 1 hour late should be 1 day (ceiling)"
+        );
     }
 
     #[test]
