@@ -164,7 +164,13 @@ fn test_complete_invoice_lifecycle() {
         &String::from_str(&env, "Pool Shares"),
         &String::from_str(&env, "POOL"),
     );
-    initialize_pool(&pool_client, &actors.admin, &usdc_id, &share_id, &invoice_id);
+    initialize_pool(
+        &pool_client,
+        &actors.admin,
+        &usdc_id,
+        &share_id,
+        &invoice_id,
+    );
     credit_client.initialize(&actors.admin, &invoice_id, &pool_id);
 
     // Mint tokens to investor and SME

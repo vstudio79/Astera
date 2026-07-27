@@ -505,11 +505,7 @@ impl OracleRegistryContract {
         // #954: every slash must cite the specific verification round it's
         // punishing behavior from — otherwise a slash is an unaccountable
         // admin fiat with no on-chain trail to audit after the fact.
-        if !env
-            .storage()
-            .persistent()
-            .has(&DataKey::Round(round_id))
-        {
+        if !env.storage().persistent().has(&DataKey::Round(round_id)) {
             return Err(OracleRegistryError::SlashRoundNotFound);
         }
         let key = DataKey::Oracle(operator.clone());

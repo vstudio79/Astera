@@ -39,15 +39,14 @@ export default function CoFundingPage() {
   const [transferTo, setTransferTo] = useState('');
   const [transferBps, setTransferBps] = useState('10000');
 
-  async function signAndSubmit(xdr: string, label?: string) {
+  async function signAndSubmit(xdr: string, _label?: string) {
     const freighter = await import('@stellar/freighter-api');
     const { signedTxXdr, error: signError } = await freighter.signTransaction(xdr, {
       networkPassphrase: 'Test SDF Network ; September 2015',
       address: wallet.address!,
     });
     if (signError) throw new Error(signError.message || 'Signing rejected.');
-    const submitter = label ? useTrackTransaction(label) : trackedSubmit;
-    await submitter(signedTxXdr);
+    await trackedSubmit(signedTxXdr);
   }
 
   async function handleCommit(round: CoFundingRound) {
@@ -135,10 +134,9 @@ export default function CoFundingPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">Co-Funding Rounds</h1>
         <p className="text-brand-muted text-sm">
-          Commit capital toward a specific invoice alongside other investors. Every co-funder
-          ranks pari passu and owns a proportional slice of that invoice&apos;s principal and
-          interest — separate from the general pool position, and tradeable once the round is
-          filled.
+          Commit capital toward a specific invoice alongside other investors. Every co-funder ranks
+          pari passu and owns a proportional slice of that invoice&apos;s principal and interest —
+          separate from the general pool position, and tradeable once the round is filled.
         </p>
       </div>
 

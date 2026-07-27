@@ -6,7 +6,14 @@ use soroban_sdk::{
 
 // Import contract implementations
 use invoice::{InvoiceContract, InvoiceContractClient};
-use pool::{FundingPool, FundingPoolClient};
+use pool::{FundingPool, FundingPoolClient, OpenCoFundingRequest};
+
+/// Default max invoice amount: 1M USDC (1_000_000 * 10^6)
+const MAX_INVOICE_AMOUNT: i128 = 1_000_000_000_000;
+/// 30 days in seconds
+const EXPIRATION_DURATION: u64 = 2_592_000;
+/// 7-day grace period
+const GRACE_PERIOD_DAYS: u32 = 7;
 
 /// Setup helper for invoice contract benchmarks
 fn setup_invoice_env() -> (Env, InvoiceContractClient<'static>, Address, Address) {
@@ -20,7 +27,13 @@ fn setup_invoice_env() -> (Env, InvoiceContractClient<'static>, Address, Address
     let admin = Address::generate(&env);
     let pool = Address::generate(&env);
 
-    client.initialize(&admin, &pool);
+    client.initialize(
+        &admin,
+        &pool,
+        &MAX_INVOICE_AMOUNT,
+        &EXPIRATION_DURATION,
+        &GRACE_PERIOD_DAYS,
+    );
 
     (env, client, admin, pool)
 }
@@ -39,12 +52,16 @@ fn setup_pool_env() -> (Env, FundingPoolClient<'static>, Address, Address) {
     let usdc_id = env
         .register_stellar_asset_contract_v2(token_admin.clone())
         .address();
+    let share_admin = Address::generate(&env);
+    let share_id = env
+        .register_stellar_asset_contract_v2(share_admin.clone())
+        .address();
     let invoice_contract = Address::generate(&env);
 
     // Mint USDC for testing
     soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id).mint(&admin, &10_000_000_000);
 
-    client.initialize(&admin, &usdc_id, &invoice_contract);
+    client.initialize(&admin, &usdc_id, &share_id, &invoice_contract);
 
     (env, client, admin, usdc_id)
 }
@@ -60,10 +77,21 @@ fn bench_create_invoice(c: &mut Criterion) {
             |(env, client, owner)| {
                 let debtor = SorobanString::from_str(&env, "Acme Corp");
                 let amount = black_box(1_000_000_000i128);
-                let due_date = black_box(env.ledger().timestamp() + 2_592_000);
+                let due_date = black_box(env.ledger().timestamp() + EXPIRATION_DURATION);
                 let description = SorobanString::from_str(&env, "Invoice for services");
+                let verification_hash = SorobanString::from_str(&env, "hash123");
+                let metadata_url =
+                    SorobanString::from_str(&env, "https://example.com/invoice/1.json");
 
-                client.create_invoice(&owner, &debtor, &amount, &due_date, &description)
+                client.create_invoice(
+                    &owner,
+                    &debtor,
+                    &amount,
+                    &due_date,
+                    &description,
+                    &verification_hash,
+                    &metadata_url,
+                )
             },
             criterion::BatchSize::SmallInput,
         )
@@ -78,11 +106,21 @@ fn bench_mark_paid(c: &mut Criterion) {
                 let owner = Address::generate(&env);
                 let debtor = SorobanString::from_str(&env, "Acme Corp");
                 let amount = 1_000_000_000i128;
-                let due_date = env.ledger().timestamp() + 2_592_000;
+                let due_date = env.ledger().timestamp() + EXPIRATION_DURATION;
                 let description = SorobanString::from_str(&env, "Invoice for services");
+                let verification_hash = SorobanString::from_str(&env, "hash123");
+                let metadata_url =
+                    SorobanString::from_str(&env, "https://example.com/invoice/2.json");
 
-                let invoice_id =
-                    client.create_invoice(&owner, &debtor, &amount, &due_date, &description);
+                let invoice_id = client.create_invoice(
+                    &owner,
+                    &debtor,
+                    &amount,
+                    &due_date,
+                    &description,
+                    &verification_hash,
+                    &metadata_url,
+                );
                 client.mark_funded(&invoice_id, &pool);
 
                 (env, client, invoice_id, pool)
@@ -106,11 +144,11 @@ fn bench_deposit(c: &mut Criterion) {
                 soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id)
                     .mint(&investor, &5_000_000_000);
 
-                (env, client, investor)
+                (env, client, investor, usdc_id)
             },
-            |(env, client, investor)| {
+            |(env, client, investor, usdc_id)| {
                 let amount = black_box(1_000_000_000i128);
-                client.deposit(&investor, &amount, &None)
+                client.deposit(&investor, &usdc_id, &amount, &None)
             },
             criterion::BatchSize::SmallInput,
         )
@@ -128,13 +166,25 @@ fn bench_commit_to_invoice(c: &mut Criterion) {
                 // Mint and deposit USDC
                 soroban_sdk::token::StellarAssetClient::new(&env, &usdc_id)
                     .mint(&investor, &5_000_000_000);
-                client.deposit(&investor, &3_000_000_000, &None);
+                client.deposit(&investor, &usdc_id, &3_000_000_000, &None);
 
-                // Initialize co-funding
+                // Open co-funding round
                 let invoice_id = 1u64;
                 let principal = 3_000_000_000i128;
-                let due_date = env.ledger().timestamp() + 2_592_000;
-                client.init_co_funding(&admin, &invoice_id, &principal, &sme, &due_date);
+                let due_date = env.ledger().timestamp() + EXPIRATION_DURATION;
+                let funding_deadline = env.ledger().timestamp() + 604_800; // 7 days
+
+                let request = OpenCoFundingRequest {
+                    invoice_id,
+                    token: usdc_id.clone(),
+                    target_principal: principal,
+                    sme,
+                    due_date,
+                    funding_deadline,
+                    min_commitment: 1,
+                    max_investor_bps: 10_000,
+                };
+                client.open_co_funding(&admin, &request);
 
                 (env, client, investor, invoice_id)
             },
@@ -161,20 +211,34 @@ fn bench_repay_invoice(c: &mut Criterion) {
                 token_client.mint(&sme, &4_000_000_000);
 
                 // Deposit and fund invoice
-                client.deposit(&investor, &3_000_000_000, &None);
+                client.deposit(&investor, &usdc_id, &3_000_000_000, &None);
                 let invoice_id = 1u64;
                 let principal = 3_000_000_000i128;
-                let due_date = env.ledger().timestamp() + 2_592_000;
-                client.init_co_funding(&admin, &invoice_id, &principal, &sme, &due_date);
+                let due_date = env.ledger().timestamp() + EXPIRATION_DURATION;
+                let funding_deadline = env.ledger().timestamp() + 604_800;
+
+                let request = OpenCoFundingRequest {
+                    invoice_id,
+                    token: usdc_id.clone(),
+                    target_principal: principal,
+                    sme: sme.clone(),
+                    due_date,
+                    funding_deadline,
+                    min_commitment: 1,
+                    max_investor_bps: 10_000,
+                };
+                client.open_co_funding(&admin, &request);
                 client.commit_to_invoice(&investor, &invoice_id, &principal);
 
                 // Advance time by 30 days
-                env.ledger().with_mut(|l| l.timestamp += 2_592_000);
+                env.ledger()
+                    .with_mut(|l| l.timestamp += EXPIRATION_DURATION);
 
                 (env, client, invoice_id, sme)
             },
             |(env, client, invoice_id, sme)| {
-                client.repay_invoice(&black_box(invoice_id), &black_box(sme))
+                let amount = black_box(3_000_000_000i128);
+                client.repay_invoice(&invoice_id, &sme, &amount)
             },
             criterion::BatchSize::SmallInput,
         )

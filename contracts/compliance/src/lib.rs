@@ -459,11 +459,7 @@ impl ComplianceContract {
         // #927: enforce cooldown — same caller cannot re-request review for the
         // same address within REVIEW_REQUEST_COOLDOWN_SECS.
         let cooldown_key = DataKey::ReviewRequestedAt(caller.clone(), address.clone());
-        if let Some(last_at) = env
-            .storage()
-            .instance()
-            .get::<DataKey, u64>(&cooldown_key)
-        {
+        if let Some(last_at) = env.storage().instance().get::<DataKey, u64>(&cooldown_key) {
             if now < last_at.saturating_add(REVIEW_REQUEST_COOLDOWN_SECS) {
                 return Err(ComplianceError::ReviewRequestTooSoon);
             }
@@ -568,10 +564,7 @@ impl ComplianceContract {
     /// #928: Batch variant of get_effective_status. Returns statuses in the
     /// same order as the input addresses, reducing cross-contract calls for
     /// flows that touch multiple addresses (e.g. fund_multiple_invoices).
-    pub fn get_effective_status_batch(
-        env: Env,
-        addresses: Vec<Address>,
-    ) -> Vec<ComplianceStatus> {
+    pub fn get_effective_status_batch(env: Env, addresses: Vec<Address>) -> Vec<ComplianceStatus> {
         let now = env.ledger().timestamp();
         let mut results = Vec::new(&env);
         for i in 0..addresses.len() {

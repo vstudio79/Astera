@@ -17,10 +17,14 @@ export function useTransactionSimulation(
   const [feeEstimate, setFeeEstimate] = useState<FeeEstimate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const simulateFnRef = useRef(simulateFn);
-  simulateFnRef.current = simulateFn;
+
+  useEffect(() => {
+    simulateFnRef.current = simulateFn;
+  }, [simulateFn]);
 
   useEffect(() => {
     if (!enabled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus('idle');
       setFeeEstimate(null);
       setError(null);

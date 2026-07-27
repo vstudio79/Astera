@@ -13,6 +13,7 @@ import { downloadInvoicePDF } from '@/components/InvoicePDF';
 // uses <GlossaryTerm> below but never imported it, so `tsc`/the Next.js
 // build failed at HEAD. Not part of any of the four assigned issues.
 import GlossaryTerm from '@/components/GlossaryTerm';
+import BorrowerCreditBadge from '@/components/BorrowerCreditBadge';
 import {
   getInvoice,
   getInvoiceMetadata,
@@ -373,7 +374,13 @@ export default function InvoiceDetailPage() {
 
   const repaySimulation = useTransactionSimulation(
     simulateRepay,
-    isOwner && metadata.status === 'Funded' && !!fundedInvoice && !fullyRepaid && !!wallet.address && !!invoice && (!!repayAmount || remainingDue > 0n),
+    isOwner &&
+      metadata.status === 'Funded' &&
+      !!fundedInvoice &&
+      !fullyRepaid &&
+      !!wallet.address &&
+      !!invoice &&
+      (!!repayAmount || remainingDue > 0n),
   );
 
   async function handleRepay() {
@@ -976,8 +983,8 @@ export default function InvoiceDetailPage() {
             <div>
               <h2 className="text-lg font-semibold mb-1">Fund This Invoice</h2>
               <p className="text-xs text-brand-muted">
-                Join other lenders co-funding this invoice. Committed capital earns a
-                proportional share of this invoice&apos;s principal and interest.
+                Join other lenders co-funding this invoice. Committed capital earns a proportional
+                share of this invoice&apos;s principal and interest.
               </p>
             </div>
 

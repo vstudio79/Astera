@@ -2709,7 +2709,10 @@ impl InvoiceContract {
     /// interfaces don't need to share Rust types.
     pub fn get_invoice_verification_state(env: Env, id: u64) -> (bool, i128) {
         let invoice = load_invoice(&env, id);
-        (invoice.status == InvoiceStatus::AwaitingVerification, invoice.amount)
+        (
+            invoice.status == InvoiceStatus::AwaitingVerification,
+            invoice.amount,
+        )
     }
 
     pub fn get_funded_amount(env: Env, id: u64) -> i128 {

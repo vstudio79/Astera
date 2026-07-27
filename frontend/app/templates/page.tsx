@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   deleteInvoiceTemplate,
   loadInvoiceTemplates,
@@ -9,8 +9,7 @@ import {
 } from '@/lib/invoiceTemplates';
 
 export default function TemplatesPage() {
-  const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
-  useEffect(() => setTemplates(loadInvoiceTemplates()), []);
+  const [templates, setTemplates] = useState<InvoiceTemplate[]>(loadInvoiceTemplates());
   const remove = (id: string) => {
     deleteInvoiceTemplate(id);
     setTemplates(loadInvoiceTemplates());
